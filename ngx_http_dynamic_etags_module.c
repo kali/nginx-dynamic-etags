@@ -17,10 +17,6 @@
 #include <ngx_md5.h>
 #include <sys/stat.h>
 
-/*
- *  Two configuration elements: `enable_etags` and `etag_format`, specified in
- *  the `Location` block.
- */
 typedef struct {
     ngx_flag_t  enable;
 } ngx_http_dynamic_etags_loc_conf_t;
