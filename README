@@ -1,0 +1,11 @@
+Attempt at handling ETag / If-None-Match on proxied content.
+
+I plan on using this to front a Varnish server using a lot of ESI.
+
+It does kind of work, but... be aware, this is my first attempt at developping
+a nginx plugin, and dealing with headers after having read the body was not
+exactly in the how-to.
+
+Any comment and/or improvement and/or fork is welcome.
+
+Thanks to http://github.com/kkung/nginx-static-etags/ for... inspiration.
