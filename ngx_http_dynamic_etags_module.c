@@ -1,9 +1,12 @@
 /* 
- *  Copyright (c) 2009 Adrian Jung ( http://me2day.net/kkung, kkungkkung@gmail.com ).
+ *  Copyright (c) 2009 Mathieu Poumeyrol ( http://github.com/kali )
+ *
  *  All rights reserved.
- *  All original code was written by Mike West ( http://mikewest.org/ )
+ *  All original code was written by Mike West ( http://mikewest.org/ ) and
+        Adrian Jung ( http://me2day.net/kkung, kkungkkung@gmail.com ).
  *
  *  Copyright 2008 Mike West ( http://mikewest.org/ )
+ *  Copyright 2009 Adrian Jung ( http://me2day.net/kkung, kkungkkung@gmail.com ).
  *
  *  The following is released under the Creative Commons BSD license,
  *  available for your perusal at `http://creativecommons.org/licenses/BSD/`
@@ -20,9 +23,6 @@
  */
 typedef struct {
     ngx_flag_t  enable;
-/*    ngx_flag_t  enable_hash;
-    ngx_str_t   hash_method;
-*/ 
 } ngx_http_dynamic_etags_loc_conf_t;
 
 typedef struct {
@@ -37,7 +37,6 @@ static char * ngx_http_dynamic_etags_merge_loc_conf(ngx_conf_t *cf, void *parent
 static ngx_int_t ngx_http_dynamic_etags_init(ngx_conf_t *cf);
 static ngx_int_t ngx_http_dynamic_etags_header_filter(ngx_http_request_t *r);
 static ngx_int_t ngx_http_dynamic_etags_body_filter(ngx_http_request_t *r, ngx_chain_t *in);
-//static char *ngx_http_dynamic_etags_hash_method(ngx_conf_t *cf, ngx_command_t *cmd, void *conf);
 
 static ngx_command_t  ngx_http_dynamic_etags_commands[] = {
     { ngx_string( "dynamic_etags" ),
@@ -78,29 +77,6 @@ ngx_module_t  ngx_http_dynamic_etags_module = {
     NGX_MODULE_V1_PADDING
 };
 
-/*
-static char *ngx_http_dynamic_etags_hash_method(ngx_conf_t *cf, ngx_command_t *cmd, void *conf) {
-   ngx_http_dynamic_etags_loc_conf_t    *l_conf = conf;
-   ngx_str_t  *value;
-
-   if (l_conf->hash_method.len) {
-     return "is duplicate"; 
-   } 
-   
-   value = cf->args->elts;
-   
-   if ( ngx_strcmp(value[1].data,"md5") == 0 ) {
-     l_conf->hash_method = value[1];
-   } else if ( ngx_strcmp(value[1].data,"sha1") == 0 ) {
-     l_conf->hash_method = value[1];
-   } else {
-     return "invalid value. md5 or sha1 allowed";
-   }
-   
-   return NGX_CONF_OK;
-   
-}
-*/
 static void * ngx_http_dynamic_etags_create_loc_conf(ngx_conf_t *cf) {
     ngx_http_dynamic_etags_loc_conf_t    *conf;
 
