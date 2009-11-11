@@ -109,7 +109,6 @@ static ngx_int_t ngx_http_dynamic_etags_header_filter(ngx_http_request_t *r) {
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_dynamic_etags_module);
 
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "HEADER FILTER ctx=%p", ctx);
     if (ctx) {
         return ngx_http_next_header_filter(r);
     }
@@ -142,7 +141,6 @@ static ngx_int_t ngx_http_dynamic_etags_body_filter(ngx_http_request_t *r, ngx_c
     ngx_uint_t i;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_dynamic_etags_module);
-    ngx_log_debug1(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "BODY FILTER ctx=%p", ctx);
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_dynamic_etags_module);
     if (ctx == NULL) {
@@ -151,7 +149,6 @@ static ngx_int_t ngx_http_dynamic_etags_body_filter(ngx_http_request_t *r, ngx_c
 
     ngx_md5_init(&md5);
     for (chain_link = in; chain_link; chain_link = chain_link->next) {
-    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0, "hashing %p, %p", chain_link->buf->last, chain_link->buf->pos);
         ngx_md5_update(&md5, chain_link->buf->pos,
             chain_link->buf->last - chain_link->buf->pos);
     }
@@ -187,8 +184,6 @@ static ngx_int_t ngx_http_dynamic_etags_body_filter(ngx_http_request_t *r, ngx_c
             header = part->elts;
             i = 0;
         }
-
-        ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0 , "[Etag] Header %V: %V", &header[i].key, &header[i].value );
 
         if ( ngx_strcmp(header[i].key.data, "If-None-Match") == 0 ) {
             if_none_match = header[i];
