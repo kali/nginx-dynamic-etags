@@ -141,71 +141,74 @@ static ngx_int_t ngx_http_dynamic_etags_body_filter(ngx_http_request_t *r, ngx_c
     ngx_uint_t i;
 
     ctx = ngx_http_get_module_ctx(r, ngx_http_dynamic_etags_module);
-
-    ctx = ngx_http_get_module_ctx(r, ngx_http_dynamic_etags_module);
     if (ctx == NULL) {
         return ngx_http_next_body_filter(r, in);
     }
+	
+    ngx_http_dynamic_etags_loc_conf_t *loc_conf;
+    loc_conf = ngx_http_get_module_loc_conf(r, ngx_http_dynamic_etags_module);
+    if (1 == loc_conf->enable) {
+        ngx_md5_init(&md5);
+        for (chain_link = in; chain_link; chain_link = chain_link->next) {
+            ngx_md5_update(&md5, chain_link->buf->pos,
+                chain_link->buf->last - chain_link->buf->pos);
+        }
+        ngx_md5_final(digest, &md5);
 
-    ngx_md5_init(&md5);
-    for (chain_link = in; chain_link; chain_link = chain_link->next) {
-        ngx_md5_update(&md5, chain_link->buf->pos,
-            chain_link->buf->last - chain_link->buf->pos);
-    }
-    ngx_md5_final(digest, &md5);
+        unsigned char* etag = ngx_pcalloc(r->pool, 34);
+        etag[0] = etag[33] = '"';
+        for ( i = 0 ; i < 16; i++ ) {
+            etag[2*i+1] = hex[digest[i] >> 4];
+            etag[2*i+2] = hex[digest[i] & 0xf];
+        }
 
-    unsigned char* etag = ngx_pcalloc(r->pool, 34);
-    etag[0] = etag[33] = '"';
-    for ( i = 0 ; i < 16; i++ ) {
-        etag[2*i+1] = hex[digest[i] >> 4];
-        etag[2*i+2] = hex[digest[i] & 0xf];
-    }
+        if(!r->headers_out.etag) {
+            r->headers_out.etag = ngx_list_push(&r->headers_out.headers);
+        }
 
-    if(!r->headers_out.etag) {
-        r->headers_out.etag = ngx_list_push(&r->headers_out.headers);
-    }
+        r->headers_out.etag->hash = 1;
+        r->headers_out.etag->key.len = sizeof("ETag") - 1;
+        r->headers_out.etag->key.data = (u_char *) "ETag";
+        r->headers_out.etag->value.len = 34;
+        r->headers_out.etag->value.data = etag;
 
-    r->headers_out.etag->hash = 1;
-    r->headers_out.etag->key.len = sizeof("ETag") - 1;
-    r->headers_out.etag->key.data = (u_char *) "ETag";
-    r->headers_out.etag->value.len = 34;
-    r->headers_out.etag->value.data = etag;
+        /* look for If-None-Match in request headers */
+        ngx_uint_t      found=0;
+        ngx_list_part_t *part = NULL;
+        ngx_table_elt_t *header = NULL;
+        ngx_table_elt_t if_none_match;
+        part = &r->headers_in.headers.part;
+        header = part->elts;
+        for ( i = 0 ; ; i++ ) {
+            if ( i >= part->nelts) {
+                if ( part->next == NULL ) {
+                        break;
+                }
 
-    /* look for If-None-Match in request headers */
-    ngx_uint_t      found=0;
-    ngx_list_part_t *part = NULL;
-    ngx_table_elt_t *header = NULL;
-    ngx_table_elt_t if_none_match;
-    part = &r->headers_in.headers.part;
-    header = part->elts;
-    for ( i = 0 ; ; i++ ) {
-        if ( i >= part->nelts) {
-            if ( part->next == NULL ) {
-                    break;
+                part = part->next;
+                header = part->elts;
+                i = 0;
             }
 
-            part = part->next;
-            header = part->elts;
-            i = 0;
+            if ( ngx_strcmp(header[i].key.data, "If-None-Match") == 0 ) {
+                if_none_match = header[i];
+                found = 1;
+                break;
+            }
         }
 
-        if ( ngx_strcmp(header[i].key.data, "If-None-Match") == 0 ) {
-            if_none_match = header[i];
-            found = 1;
-            break;
-        }
-    }
+        if ( found ) {
+            if ( ngx_strncmp(r->headers_out.etag->value.data, if_none_match.value.data, r->headers_out.etag->value.len) == 0 ) {
 
-    if ( found ) {
-        if ( ngx_strncmp(r->headers_out.etag->value.data, if_none_match.value.data, r->headers_out.etag->value.len) == 0 ) {
-
-            r->headers_out.status = NGX_HTTP_NOT_MODIFIED;
-            r->headers_out.status_line.len = 0;
-            r->headers_out.content_type.len = 0;
-            ngx_http_clear_content_length(r);
-            ngx_http_clear_accept_ranges(r);
+                r->headers_out.status = NGX_HTTP_NOT_MODIFIED;
+                r->headers_out.status_line.len = 0;
+                r->headers_out.content_type.len = 0;
+                ngx_http_clear_content_length(r);
+                ngx_http_clear_accept_ranges(r);
+            }
         }
-    }
+    }	
+
 
     rc = ngx_http_next_header_filter(r);
     if (rc == NGX_ERROR || rc > NGX_OK) {
