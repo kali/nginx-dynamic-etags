@@ -28,6 +28,7 @@ typedef struct {
 static ngx_http_output_header_filter_pt  ngx_http_next_header_filter;
 static ngx_http_output_body_filter_pt    ngx_http_next_body_filter;
 
+static ngx_uint_t if_match(ngx_http_request_t *r, ngx_table_elt_t *header);
 static void * ngx_http_dynamic_etags_create_loc_conf(ngx_conf_t *cf);
 static char * ngx_http_dynamic_etags_merge_loc_conf(ngx_conf_t *cf, void *parent, void *child);
 static ngx_int_t ngx_http_dynamic_etags_init(ngx_conf_t *cf);
@@ -176,7 +177,7 @@ static ngx_int_t ngx_http_dynamic_etags_body_filter(ngx_http_request_t *r, ngx_c
         ngx_uint_t      found=0;
         ngx_list_part_t *part = NULL;
         ngx_table_elt_t *header = NULL;
-        ngx_table_elt_t if_none_match;
+        ngx_table_elt_t *if_none_match;
         part = &r->headers_in.headers.part;
         header = part->elts;
         for ( i = 0 ; ; i++ ) {
@@ -191,14 +192,14 @@ static ngx_int_t ngx_http_dynamic_etags_body_filter(ngx_http_request_t *r, ngx_c
             }
 
             if ( ngx_strcmp(header[i].key.data, "If-None-Match") == 0 ) {
-                if_none_match = header[i];
+                if_none_match = &header[i];
                 found = 1;
                 break;
             }
         }
 
         if ( found ) {
-            if ( ngx_strncmp(r->headers_out.etag->value.data, if_none_match.value.data, r->headers_out.etag->value.len) == 0 ) {
+            if (if_match(r, if_none_match)) {
 
                 r->headers_out.status = NGX_HTTP_NOT_MODIFIED;
                 r->headers_out.status_line.len = 0;
@@ -218,4 +219,87 @@ static ngx_int_t ngx_http_dynamic_etags_body_filter(ngx_http_request_t *r, ngx_c
     ngx_http_set_ctx(r, NULL, ngx_http_dynamic_etags_module);
 
     return ngx_http_next_body_filter(r, in);
+}
+
+static ngx_uint_t if_match(ngx_http_request_t *r, ngx_table_elt_t *header)
+{
+    u_char     *start, *end, ch;
+    ngx_str_t   etag, *list;
+
+    list = &header->value;
+
+    if (list->len == 1 && list->data[0] == '*') {
+        return 1;
+    }
+
+    if (r->headers_out.etag == NULL) {
+        return 0;
+    }
+
+    etag = r->headers_out.etag->value;
+
+    ngx_log_debug2(NGX_LOG_DEBUG_HTTP, r->connection->log, 0,
+                   "http im:\"%V\" etag:%V", list, &etag);
+
+    if ( etag.len > 2
+        && etag.data[0] == 'W'
+        && etag.data[1] == '/')
+    {
+        etag.len -= 2;
+        etag.data += 2;
+    }
+
+    start = list->data;
+    end = list->data + list->len;
+
+    while (start < end) {
+
+        if ( end - start > 2
+            && start[0] == 'W'
+            && start[1] == '/')
+        {
+            start += 2;
+        }
+
+        if (etag.len > (size_t) (end - start)) {
+            return 0;
+        }
+
+        if (ngx_strncmp(start, etag.data, etag.len) != 0) {
+            goto skip;
+        }
+
+        start += etag.len;
+
+        while (start < end) {
+            ch = *start;
+
+            if (ch == ' ' || ch == '\t') {
+                start++;
+                continue;
+            }
+
+            break;
+        }
+
+        if (start == end || *start == ',') {
+            return 1;
+        }
+
+    skip:
+
+        while (start < end && *start != ',') { start++; }
+        while (start < end) {
+            ch = *start;
+
+            if (ch == ' ' || ch == '\t' || ch == ',') {
+                start++;
+                continue;
+            }
+
+            break;
+        }
+    }
+
+    return 0;
 }
